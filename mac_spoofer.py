@@ -1,5 +1,4 @@
-import tkinter as tk
-from tkinter import messagebox, ttk
+import streamlit as st
 import subprocess
 import re
 import random
@@ -18,76 +17,40 @@ def generate_random_mac():
     mac = [0x00, 0x16, 0x3e] + [random.randint(0x00, 0xff) for _ in range(3)]
     return ':'.join(map(lambda x: f"{x:02x}", mac))
 
-# Change MAC Address
-def change_mac():
-    interface = interface_entry.get().strip()
-    new_mac = mac_entry.get().strip()
+# Streamlit App
+st.set_page_config(page_title="MAC Address Spoofer", layout="centered")
+st.title("🔧 MAC Address Spoofer (Web App)")
 
-    if not interface or not new_mac:
-        messagebox.showerror("Error", "Enter both interface and MAC address.")
-        return
-
-    try:
-        subprocess.call(["sudo", "ifconfig", interface, "down"])
-        subprocess.call(["sudo", "ifconfig", interface, "hw", "ether", new_mac])
-        subprocess.call(["sudo", "ifconfig", interface, "up"])
-        show_current_mac()
-        messagebox.showinfo("Success", f"MAC changed to {new_mac} on {interface}")
-    except Exception as e:
-        messagebox.showerror("Error", f"Failed to change MAC: {str(e)}")
-
-# Show Current MAC
-def show_current_mac():
-    interface = interface_entry.get().strip()
-    if not interface:
-        current_mac_var.set("Enter interface to check")
-        return
-    mac = get_current_mac(interface)
-    current_mac_var.set(f"Current MAC: {mac}")
-
-# Autofill random MAC
-def use_random_mac():
-    mac_entry.delete(0, tk.END)
-    mac_entry.insert(0, generate_random_mac())
-
-# GUI Setup
-root = tk.Tk()
-root.title("Professional MAC Address Spoofer")
-root.geometry("460x350")
-root.resizable(False, False)
-
-# Style
-style = ttk.Style()
-style.configure("TLabel", font=("Segoe UI", 10))
-style.configure("TButton", font=("Segoe UI", 10), padding=6)
-style.configure("TEntry", font=("Segoe UI", 10))
-
-# Frame
-main_frame = ttk.Frame(root, padding=20)
-main_frame.pack(expand=True)
+st.markdown("Spoof your MAC address from the browser (Linux only)")
 
 # Interface Input
-ttk.Label(main_frame, text="Network Interface (e.g., eth0, wlan0)").pack(anchor="w", pady=(0, 4))
-interface_entry = ttk.Entry(main_frame, width=40)
-interface_entry.pack(pady=5)
+interface = st.text_input("🖧 Network Interface (e.g., eth0, wlan0)", value="eth0")
+
+# Random MAC Button
+if st.button("🎲 Generate Random MAC"):
+    st.session_state.random_mac = generate_random_mac()
 
 # MAC Input
-ttk.Label(main_frame, text="New MAC Address (e.g., 00:11:22:33:44:55)").pack(anchor="w", pady=(10, 4))
-mac_entry = ttk.Entry(main_frame, width=40)
-mac_entry.pack(pady=5)
+mac_input_default = st.session_state.get("random_mac", "00:11:22:33:44:55")
+new_mac = st.text_input("🔀 New MAC Address", value=mac_input_default)
 
 # Buttons
-button_frame = ttk.Frame(main_frame)
-button_frame.pack(pady=15)
+col1, col2 = st.columns(2)
 
-ttk.Button(button_frame, text="Change MAC", command=change_mac).grid(row=0, column=0, padx=5)
-ttk.Button(button_frame, text="Show Current MAC", command=show_current_mac).grid(row=0, column=1, padx=5)
-ttk.Button(button_frame, text="Generate Random MAC", command=use_random_mac).grid(row=0, column=2, padx=5)
+with col1:
+    if st.button("✅ Change MAC"):
+        if not interface or not new_mac:
+            st.error("Please provide both interface and MAC address.")
+        else:
+            try:
+                subprocess.call(["sudo", "ifconfig", interface, "down"])
+                subprocess.call(["sudo", "ifconfig", interface, "hw", "ether", new_mac])
+                subprocess.call(["sudo", "ifconfig", interface, "up"])
+                st.success(f"MAC changed to `{new_mac}` on `{interface}`")
+            except Exception as e:
+                st.error(f"Failed to change MAC: {e}")
 
-# Current MAC Display
-current_mac_var = tk.StringVar(value="Current MAC: --")
-current_mac_label = ttk.Label(main_frame, textvariable=current_mac_var, foreground="blue", font=("Segoe UI", 10, "bold"))
-current_mac_label.pack(pady=(20, 0))
-
-# Start GUI loop
-root.mainloop()
+with col2:
+    if st.button("🔍 Show Current MAC"):
+        mac = get_current_mac(interface)
+        st.info(f"**Current MAC Address** for `{interface}`: `{mac}`")
